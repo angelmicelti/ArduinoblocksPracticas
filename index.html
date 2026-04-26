@@ -3,15 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Gestor de prácticas ArduinoBlocks con criterios de evaluación TEC4 sincronizados en tiempo real.">
-    <meta name="theme-color" content="#0d6efd">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="ArduinoBlocks">
-    <link rel="icon" type="image/x-icon" href="./icons/favicon.ico">
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
-    <link rel="manifest" href="./manifest.json">
-    <title>Prácticas ArduinoBlocks TEC4</title>
+    <title>Prácticas ArduinoBlocks - 13 criterios TEC4</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
@@ -98,8 +90,29 @@
             white-space: nowrap;
         }
         .criteria-checkbox-list {
-            max-height: 300px;
+            max-height: 65vh;
             overflow-y: auto;
+            overflow-x: hidden;
+        }
+        #addCriteriaModal .modal-body {
+            overflow: visible !important;
+        }
+        #addCriteriaModal .form-check {
+            overflow: visible !important;
+            max-width: 100% !important;
+        }
+        #addCriteriaModal .form-check-label {
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            overflow: visible !important;
+            display: inline-block !important;
+            max-width: calc(100% - 1.75rem) !important;
+        }
+        #addCriteriaModal .form-check-label small {
+            display: block !important;
+            line-height: 1.5;
+            white-space: normal !important;
         }
     </style>
 </head>
@@ -149,7 +162,7 @@
 
 <!-- MODAL para añadir criterios extra -->
 <div class="modal fade" id="addCriteriaModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title">Añadir criterios de evaluación</h5>
@@ -181,15 +194,14 @@
     // Si no configuras Firebase, la app usará localStorage local (sin sincronizar).
     // --------------------------------------------------------------
     const firebaseConfig = {
-          apiKey: "AIzaSyCYLbcE_zVQpZdolgZww18uGvLhdOLo-wM",
-          authDomain: "arduinoblocks01.firebaseapp.com",
-          databaseURL: "https://arduinoblocks01-default-rtdb.europe-west1.firebasedatabase.app",
-          projectId: "arduinoblocks01",
-          storageBucket: "arduinoblocks01.firebasestorage.app",
-          messagingSenderId: "584506334188",
-          appId: "1:584506334188:web:42851bdb11037c01cf7ec9"
-        };
-
+        apiKey: "TU_API_KEY_AQUI",
+        authDomain: "TU_PROYECTO.firebaseapp.com",
+        databaseURL: "https://TU_PROYECTO-default-rtdb.firebaseio.com",
+        projectId: "TU_PROYECTO",
+        storageBucket: "TU_PROYECTO.appspot.com",
+        messagingSenderId: "TU_SENDER_ID",
+        appId: "TU_APP_ID"
+    };
 
     let firebaseDB = null;
     let useFirebase = false;
@@ -369,18 +381,16 @@
     };
 
     // --------------------------------------------------------------
-    // PERSISTENCIA: criterios editados por práctica
+    // PERSISTENCIA: criterios adicionales por práctica
     // --------------------------------------------------------------
     let additionalCriteriaPerPractice = {}; // { "P01_L": ["TEC.4.5.1", ...] }
-    let removedCriteriaPerPractice = {};     // { "P01_L": ["TEC.4.4.1", ...] }
 
     function loadStorage() {
-        // Cargar datos desde localStorage siempre de forma inmediato
-        const storedAdded = localStorage.getItem("additionalCriteriaPerPractice");
-        const storedRemoved = localStorage.getItem("removedCriteriaPerPractice");
-        additionalCriteriaPerPractice = storedAdded ? JSON.parse(storedAdded) : {};
-        removedCriteriaPerPractice = storedRemoved ? JSON.parse(storedRemoved) : {};
-        lastSyncHash = JSON.stringify({ a: additionalCriteriaPerPractice, r: removedCriteriaPerPractice });
+        // Cargar datos desde localStorage siempre de forma inmediata
+        const stored = localStorage.getItem("additionalCriteriaPerPractice");
+        if (stored) additionalCriteriaPerPractice = JSON.parse(stored);
+        else additionalCriteriaPerPractice = {};
+        lastSyncHash = JSON.stringify(additionalCriteriaPerPractice);
     }
 
     // Conecta Firebase en segundo plano (no bloquea la UI)
@@ -391,46 +401,36 @@
             // Escuchar cambios en tiempo real desde Firebase
             firebaseDB.ref('additionalCriteriaPerPractice').on('value', (snapshot) => {
                 const data = snapshot.val() || {};
-                additionalCriteriaPerPractice = data;
-                localStorage.setItem("additionalCriteriaPerPractice", JSON.stringify(data));
-                updateSyncAndRender();
+                const newHash = JSON.stringify(data);
+                if (newHash !== lastSyncHash) {
+                    lastSyncHash = newHash;
+                    additionalCriteriaPerPractice = data;
+                    localStorage.setItem("additionalCriteriaPerPractice", newHash);
+                    if (window.__appInitialized) {
+                        renderPractices();
+                    }
+                }
             });
-            firebaseDB.ref('removedCriteriaPerPractice').on('value', (snapshot) => {
-                const data = snapshot.val() || {};
-                removedCriteriaPerPractice = data;
-                localStorage.setItem("removedCriteriaPerPractice", JSON.stringify(data));
-                updateSyncAndRender();
-            });
-        }
-    }
-
-    function updateSyncAndRender() {
-        const newHash = JSON.stringify({ a: additionalCriteriaPerPractice, r: removedCriteriaPerPractice });
-        if (newHash !== lastSyncHash) {
-            lastSyncHash = newHash;
-            if (window.__appInitialized) {
-                renderPractices();
-            }
         }
     }
 
     function saveAdditionalCriteria() {
-        localStorage.setItem("additionalCriteriaPerPractice", JSON.stringify(additionalCriteriaPerPractice));
-        localStorage.setItem("removedCriteriaPerPractice", JSON.stringify(removedCriteriaPerPractice));
-        lastSyncHash = JSON.stringify({ a: additionalCriteriaPerPractice, r: removedCriteriaPerPractice });
+        const dataStr = JSON.stringify(additionalCriteriaPerPractice);
+        lastSyncHash = dataStr;
+        // Siempre guardar en localStorage como respaldo local
+        localStorage.setItem("additionalCriteriaPerPractice", dataStr);
+        // Si Firebase está activo, sincronizar a la nube
         if (useFirebase) {
             firebaseDB.ref('additionalCriteriaPerPractice').set(additionalCriteriaPerPractice);
-            firebaseDB.ref('removedCriteriaPerPractice').set(removedCriteriaPerPractice);
         }
         renderPractices();
     }
 
-    // Obtiene todos los criterios de una práctica (originales + extras - eliminados)
+    // Obtiene todos los criterios de una práctica (originales + extras)
     function getPracticeCriteria(practice) {
-        const base = (practice.criteria || []).filter(
-            c => !(removedCriteriaPerPractice[practice.id] || []).includes(c)
-        );
+        const base = practice.criteria || [];
         const extra = additionalCriteriaPerPractice[practice.id] || [];
+        // Eliminar duplicados (por si acaso)
         return [...new Set([...base, ...extra])];
     }
 
@@ -439,57 +439,26 @@
         if (!additionalCriteriaPerPractice[practiceId]) {
             additionalCriteriaPerPractice[practiceId] = [];
         }
-        let changed = false;
+        let added = false;
         criteriaList.forEach(criterion => {
-            // Si el criterio estaba en la lista de eliminados, restaurarlo
-            if (removedCriteriaPerPractice[practiceId]) {
-                const idx = removedCriteriaPerPractice[practiceId].indexOf(criterion);
-                if (idx !== -1) {
-                    removedCriteriaPerPractice[practiceId].splice(idx, 1);
-                    if (removedCriteriaPerPractice[practiceId].length === 0) {
-                        delete removedCriteriaPerPractice[practiceId];
-                    }
-                    changed = true;
-                }
-            }
-            // Añadir como extra si no estaba ya
             if (!additionalCriteriaPerPractice[practiceId].includes(criterion)) {
                 additionalCriteriaPerPractice[practiceId].push(criterion);
-                changed = true;
+                added = true;
             }
         });
-        if (changed) {
-            saveAdditionalCriteria();
+        if (added) {
+            saveAdditionalCriteria(); // ya llama a renderPractices()
         }
     }
 
-    // Elimina un criterio de una práctica (tanto base como extra)
+    // Elimina un criterio adicional de una práctica
     function removeCriterionFromPractice(practiceId, criterionCode) {
-        let changed = false;
-        // Si estaba en la lista de añadidos, quitarlo
         if (additionalCriteriaPerPractice[practiceId]) {
-            const idx = additionalCriteriaPerPractice[practiceId].indexOf(criterionCode);
-            if (idx !== -1) {
-                additionalCriteriaPerPractice[practiceId].splice(idx, 1);
-                if (additionalCriteriaPerPractice[practiceId].length === 0) {
-                    delete additionalCriteriaPerPractice[practiceId];
-                }
-                changed = true;
+            additionalCriteriaPerPractice[practiceId] = additionalCriteriaPerPractice[practiceId].filter(c => c !== criterionCode);
+            if (additionalCriteriaPerPractice[practiceId].length === 0) {
+                delete additionalCriteriaPerPractice[practiceId];
             }
-        }
-        // Si es un criterio base (del practice original), registrar la eliminación
-        const practice = practicesData.find(p => p.id === practiceId);
-        if (practice && (practice.criteria || []).includes(criterionCode)) {
-            if (!removedCriteriaPerPractice[practiceId]) {
-                removedCriteriaPerPractice[practiceId] = [];
-            }
-            if (!removedCriteriaPerPractice[practiceId].includes(criterionCode)) {
-                removedCriteriaPerPractice[practiceId].push(criterionCode);
-                changed = true;
-            }
-        }
-        if (changed) {
-            saveAdditionalCriteria();
+            saveAdditionalCriteria(); // ya llama a renderPractices()
         }
     }
 
@@ -567,6 +536,7 @@
 
         filtered.forEach(p => {
             const practiceCrit = getPracticeCriteria(p);
+            const baseCritSet = new Set(p.criteria || []);
             // Determinar qué criterios de los 13 NO están asignados
             const missingCriteria = ALL_CRITERIA_CODES.filter(c => !practiceCrit.includes(c));
             const showAddButton = missingCriteria.length > 0;
@@ -583,8 +553,10 @@
                         <h5 class="card-title fw-bold text-dark mb-3">${p.title}</h5>
                         <div class="mb-3 d-flex flex-wrap align-items-center gap-1" id="criteria-container-${p.id}">
                             ${practiceCrit.map(c => {
+                                const isBase = baseCritSet.has(c);
+                                const removeBtn = !isBase ? `<span class="remove-criterion" data-practice="${p.id}" data-criterion="${c}">❌</span>` : '';
                                 return `<span class="badge criterion-tag rounded-pill px-2 py-1" data-bs-toggle="popover" data-bs-trigger="hover" title="${c}" data-bs-content="${criteriaDescriptions[c] || 'Descripción no disponible.'}">
-                                            ${c} <span class="remove-criterion" data-practice="${p.id}" data-criterion="${c}">❌</span>
+                                            ${c} ${removeBtn}
                                         </span>`;
                             }).join('')}
                             ${showAddButton ? `<button class="btn btn-sm btn-outline-success btn-add-criteria ms-1" data-practice-id="${p.id}" title="Añadir criterios extra"><i class="fas fa-plus"></i> Criterio(s)</button>` : ''}
@@ -600,9 +572,29 @@
             grid.appendChild(cardCol);
         });
 
-        // Inicializar popovers (hover)
+        // Destruir popovers anteriores para evitar acumulación y persistencia
+        document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
+            const existing = bootstrap.Popover.getInstance(el);
+            if (existing) existing.dispose();
+        });
+
+        // Inicializar popovers (hover) con retardo mínimo para ocultar rápido
         const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
-        popoverTriggerList.map(el => new bootstrap.Popover(el, { trigger: 'hover', placement: 'top', html: false }));
+        popoverTriggerList.map(el => new bootstrap.Popover(el, {
+            trigger: 'hover',
+            placement: 'top',
+            html: false,
+            delay: { show: 250, hide: 80 }
+        }));
+
+        // Ocultar cualquier popover visible al salir de los criterios
+        document.querySelectorAll('[id^="criteria-container-"]').forEach(el => {
+            el.addEventListener('mouseleave', () => {
+                document.querySelectorAll('.popover.show').forEach(pop => {
+                    pop.classList.remove('show');
+                });
+            });
+        });
 
         // Eventos para botones "Añadir criterio(s)"
         document.querySelectorAll('.btn-add-criteria').forEach(btn => {
@@ -622,11 +614,11 @@
                     available.forEach(code => {
                         const desc = criteriaDescriptions[code];
                         const div = document.createElement('div');
-                        div.className = 'form-check mb-2';
+                        div.className = 'form-check mb-3';
                         div.innerHTML = `
                             <input class="form-check-input" type="checkbox" value="${code}" id="chk_${code}">
-                            <label class="form-check-label" for="chk_${code}">
-                                <strong>${code}</strong><br><small class="text-muted">${desc.substring(0, 100)}...</small>
+                            <label class="form-check-label" for="chk_${code}" style="white-space:normal; word-break:break-word; overflow-wrap:break-word;">
+                                <strong>${code}</strong><br><small class="text-muted" style="white-space:normal;">${desc}</small>
                             </label>
                         `;
                         checklistDiv.appendChild(div);
@@ -636,7 +628,7 @@
             });
         });
 
-        // Eventos para eliminar criterios (cualquiera: base o añadido)
+        // Eventos para eliminar criterios adicionales (delegación)
         document.querySelectorAll('.remove-criterion').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -681,17 +673,5 @@
     };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    // Registro del Service Worker para PWA
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').then((reg) => {
-                console.log('Service Worker registrado:', reg.scope);
-            }).catch((err) => {
-                console.warn('Service Worker no registrado:', err.message);
-            });
-        });
-    }
-</script>
 </body>
 </html>
