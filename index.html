@@ -393,13 +393,19 @@
     // PERSISTENCIA: criterios adicionales por práctica
     // --------------------------------------------------------------
     let additionalCriteriaPerPractice = {}; // { "P01_L": ["TEC.4.5.1", ...] }
+    let removedCriteriaPerPractice = {}; // { "P01_L": ["TEC.4.4.1"] } criterios base eliminados
 
     function loadStorage() {
         // Cargar datos desde localStorage siempre de forma inmediata
         const stored = localStorage.getItem("additionalCriteriaPerPractice");
         if (stored) additionalCriteriaPerPractice = JSON.parse(stored);
         else additionalCriteriaPerPractice = {};
-        lastSyncHash = JSON.stringify(additionalCriteriaPerPractice);
+
+        const storedRemoved = localStorage.getItem("removedCriteriaPerPractice");
+        if (storedRemoved) removedCriteriaPerPractice = JSON.parse(storedRemoved);
+        else removedCriteriaPerPractice = {};
+
+        lastSyncHash = JSON.stringify(additionalCriteriaPerPractice) + JSON.stringify(removedCriteriaPerPractice);
     }
 
     // Conecta Firebase en segundo plano (no bloquea la UI)
@@ -410,11 +416,26 @@
             // Escuchar cambios en tiempo real desde Firebase
             firebaseDB.ref('additionalCriteriaPerPractice').on('value', (snapshot) => {
                 const data = snapshot.val() || {};
-                const newHash = JSON.stringify(data);
+                const removedStr = JSON.stringify(removedCriteriaPerPractice);
+                const newHash = JSON.stringify(data) + removedStr;
                 if (newHash !== lastSyncHash) {
                     lastSyncHash = newHash;
                     additionalCriteriaPerPractice = data;
-                    localStorage.setItem("additionalCriteriaPerPractice", newHash);
+                    localStorage.setItem("additionalCriteriaPerPractice", JSON.stringify(data));
+                    if (window.__appInitialized) {
+                        renderPractices();
+                    }
+                }
+            });
+            // Escuchar cambios en removedCriteriaPerPractice desde Firebase
+            firebaseDB.ref('removedCriteriaPerPractice').on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                const addStr = JSON.stringify(additionalCriteriaPerPractice);
+                const newHash = addStr + JSON.stringify(data);
+                if (newHash !== lastSyncHash) {
+                    lastSyncHash = newHash;
+                    removedCriteriaPerPractice = data;
+                    localStorage.setItem("removedCriteriaPerPractice", JSON.stringify(data));
                     if (window.__appInitialized) {
                         renderPractices();
                     }
@@ -425,34 +446,50 @@
 
     function saveAdditionalCriteria() {
         const dataStr = JSON.stringify(additionalCriteriaPerPractice);
-        lastSyncHash = dataStr;
+        const removedStr = JSON.stringify(removedCriteriaPerPractice);
+        lastSyncHash = dataStr + removedStr;
         // Siempre guardar en localStorage como respaldo local
         localStorage.setItem("additionalCriteriaPerPractice", dataStr);
+        localStorage.setItem("removedCriteriaPerPractice", removedStr);
         // Si Firebase está activo, sincronizar a la nube
         if (useFirebase) {
             firebaseDB.ref('additionalCriteriaPerPractice').set(additionalCriteriaPerPractice);
+            firebaseDB.ref('removedCriteriaPerPractice').set(removedCriteriaPerPractice);
         }
         renderPractices();
     }
 
-    // Obtiene todos los criterios de una práctica (originales + extras)
+    // Obtiene todos los criterios de una práctica (originales + extras, menos los eliminados)
     function getPracticeCriteria(practice) {
         const base = practice.criteria || [];
         const extra = additionalCriteriaPerPractice[practice.id] || [];
-        // Eliminar duplicados (por si acaso)
-        return [...new Set([...base, ...extra])];
+        const removed = removedCriteriaPerPractice[practice.id] || [];
+        const all = [...new Set([...base, ...extra])];
+        return all.filter(c => !removed.includes(c));
     }
 
-    // Añade uno o varios criterios a una práctica
+    // Añade uno o varios criterios a una práctica (y los des-elimina si estaban removidos)
     function addCriteriaToPractice(practiceId, criteriaList) {
         if (!additionalCriteriaPerPractice[practiceId]) {
             additionalCriteriaPerPractice[practiceId] = [];
         }
         let added = false;
         criteriaList.forEach(criterion => {
-            if (!additionalCriteriaPerPractice[practiceId].includes(criterion)) {
+            // Si este criterio fue previamente eliminado, des-eliminarlo
+            if (removedCriteriaPerPractice[practiceId]) {
+                removedCriteriaPerPractice[practiceId] = removedCriteriaPerPractice[practiceId].filter(c => c !== criterion);
+                if (removedCriteriaPerPractice[practiceId].length === 0) {
+                    delete removedCriteriaPerPractice[practiceId];
+                }
+            }
+            // Comprobar si es un criterio base
+            const practice = practicesData.find(p => p.id === practiceId);
+            const isBase = practice && (practice.criteria || []).includes(criterion);
+            if (!isBase && !additionalCriteriaPerPractice[practiceId].includes(criterion)) {
                 additionalCriteriaPerPractice[practiceId].push(criterion);
                 added = true;
+            } else if (isBase) {
+                added = true; // Fue eliminado y ahora se agrega de vuelta
             }
         });
         if (added) {
@@ -460,15 +497,29 @@
         }
     }
 
-    // Elimina un criterio adicional de una práctica
+    // Elimina un criterio de una práctica (base o adicional)
     function removeCriterionFromPractice(practiceId, criterionCode) {
-        if (additionalCriteriaPerPractice[practiceId]) {
-            additionalCriteriaPerPractice[practiceId] = additionalCriteriaPerPractice[practiceId].filter(c => c !== criterionCode);
-            if (additionalCriteriaPerPractice[practiceId].length === 0) {
-                delete additionalCriteriaPerPractice[practiceId];
+        const practice = practicesData.find(p => p.id === practiceId);
+        const isBase = practice && (practice.criteria || []).includes(criterionCode);
+
+        if (isBase) {
+            // Es un criterio base: rastrearlo como eliminado
+            if (!removedCriteriaPerPractice[practiceId]) {
+                removedCriteriaPerPractice[practiceId] = [];
             }
-            saveAdditionalCriteria(); // ya llama a renderPractices()
+            if (!removedCriteriaPerPractice[practiceId].includes(criterionCode)) {
+                removedCriteriaPerPractice[practiceId].push(criterionCode);
+            }
+        } else {
+            // Es un criterio adicional: eliminar de la lista adicional
+            if (additionalCriteriaPerPractice[practiceId]) {
+                additionalCriteriaPerPractice[practiceId] = additionalCriteriaPerPractice[practiceId].filter(c => c !== criterionCode);
+                if (additionalCriteriaPerPractice[practiceId].length === 0) {
+                    delete additionalCriteriaPerPractice[practiceId];
+                }
+            }
         }
+        saveAdditionalCriteria(); // ya llama a renderPractices()
     }
 
     // --------------------------------------------------------------
@@ -548,7 +599,7 @@
             const baseCritSet = new Set(p.criteria || []);
             // Determinar qué criterios de los 13 NO están asignados
             const missingCriteria = ALL_CRITERIA_CODES.filter(c => !practiceCrit.includes(c));
-            const showAddButton = missingCriteria.length > 0;
+            const showAddButton = true;
 
             const cardCol = document.createElement('div');
             cardCol.className = 'col';
@@ -562,8 +613,7 @@
                         <h5 class="card-title fw-bold text-dark mb-3">${p.title}</h5>
                         <div class="mb-3 d-flex flex-wrap align-items-center gap-1" id="criteria-container-${p.id}">
                             ${practiceCrit.map(c => {
-                                const isBase = baseCritSet.has(c);
-                                const removeBtn = !isBase ? `<span class="remove-criterion" data-practice="${p.id}" data-criterion="${c}">❌</span>` : '';
+                                const removeBtn = `<span class="remove-criterion" data-practice="${p.id}" data-criterion="${c}">❌</span>`;
                                 return `<span class="badge criterion-tag rounded-pill px-2 py-1" data-bs-toggle="popover" data-bs-trigger="hover" title="${c}" data-bs-content="${criteriaDescriptions[c] || 'Descripción no disponible.'}">
                                             ${c} ${removeBtn}
                                         </span>`;
