@@ -181,14 +181,14 @@
     // Si no configuras Firebase, la app usará localStorage local (sin sincronizar).
     // --------------------------------------------------------------
     const firebaseConfig = {
-	  apiKey: "AIzaSyCYLbcE_zVQpZdolgZww18uGvLhdOLo-wM",
-	  authDomain: "arduinoblocks01.firebaseapp.com",
-	  databaseURL: "https://arduinoblocks01-default-rtdb.europe-west1.firebasedatabase.app",
-	  projectId: "arduinoblocks01",
-	  storageBucket: "arduinoblocks01.firebasestorage.app",
-	  messagingSenderId: "584506334188",
-	  appId: "1:584506334188:web:42851bdb11037c01cf7ec9"
-	};
+          apiKey: "AIzaSyCYLbcE_zVQpZdolgZww18uGvLhdOLo-wM",
+          authDomain: "arduinoblocks01.firebaseapp.com",
+          databaseURL: "https://arduinoblocks01-default-rtdb.europe-west1.firebasedatabase.app",
+          projectId: "arduinoblocks01",
+          storageBucket: "arduinoblocks01.firebasestorage.app",
+          messagingSenderId: "584506334188",
+          appId: "1:584506334188:web:42851bdb11037c01cf7ec9"
+        };
 
 
     let firebaseDB = null;
@@ -369,16 +369,18 @@
     };
 
     // --------------------------------------------------------------
-    // PERSISTENCIA: criterios adicionales por práctica
+    // PERSISTENCIA: criterios editados por práctica
     // --------------------------------------------------------------
     let additionalCriteriaPerPractice = {}; // { "P01_L": ["TEC.4.5.1", ...] }
+    let removedCriteriaPerPractice = {};     // { "P01_L": ["TEC.4.4.1", ...] }
 
     function loadStorage() {
-        // Cargar datos desde localStorage siempre de forma inmediata
-        const stored = localStorage.getItem("additionalCriteriaPerPractice");
-        if (stored) additionalCriteriaPerPractice = JSON.parse(stored);
-        else additionalCriteriaPerPractice = {};
-        lastSyncHash = JSON.stringify(additionalCriteriaPerPractice);
+        // Cargar datos desde localStorage siempre de forma inmediato
+        const storedAdded = localStorage.getItem("additionalCriteriaPerPractice");
+        const storedRemoved = localStorage.getItem("removedCriteriaPerPractice");
+        additionalCriteriaPerPractice = storedAdded ? JSON.parse(storedAdded) : {};
+        removedCriteriaPerPractice = storedRemoved ? JSON.parse(storedRemoved) : {};
+        lastSyncHash = JSON.stringify({ a: additionalCriteriaPerPractice, r: removedCriteriaPerPractice });
     }
 
     // Conecta Firebase en segundo plano (no bloquea la UI)
@@ -389,36 +391,46 @@
             // Escuchar cambios en tiempo real desde Firebase
             firebaseDB.ref('additionalCriteriaPerPractice').on('value', (snapshot) => {
                 const data = snapshot.val() || {};
-                const newHash = JSON.stringify(data);
-                if (newHash !== lastSyncHash) {
-                    lastSyncHash = newHash;
-                    additionalCriteriaPerPractice = data;
-                    localStorage.setItem("additionalCriteriaPerPractice", newHash);
-                    if (window.__appInitialized) {
-                        renderPractices();
-                    }
-                }
+                additionalCriteriaPerPractice = data;
+                localStorage.setItem("additionalCriteriaPerPractice", JSON.stringify(data));
+                updateSyncAndRender();
+            });
+            firebaseDB.ref('removedCriteriaPerPractice').on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                removedCriteriaPerPractice = data;
+                localStorage.setItem("removedCriteriaPerPractice", JSON.stringify(data));
+                updateSyncAndRender();
             });
         }
     }
 
+    function updateSyncAndRender() {
+        const newHash = JSON.stringify({ a: additionalCriteriaPerPractice, r: removedCriteriaPerPractice });
+        if (newHash !== lastSyncHash) {
+            lastSyncHash = newHash;
+            if (window.__appInitialized) {
+                renderPractices();
+            }
+        }
+    }
+
     function saveAdditionalCriteria() {
-        const dataStr = JSON.stringify(additionalCriteriaPerPractice);
-        lastSyncHash = dataStr;
-        // Siempre guardar en localStorage como respaldo local
-        localStorage.setItem("additionalCriteriaPerPractice", dataStr);
-        // Si Firebase está activo, sincronizar a la nube
+        localStorage.setItem("additionalCriteriaPerPractice", JSON.stringify(additionalCriteriaPerPractice));
+        localStorage.setItem("removedCriteriaPerPractice", JSON.stringify(removedCriteriaPerPractice));
+        lastSyncHash = JSON.stringify({ a: additionalCriteriaPerPractice, r: removedCriteriaPerPractice });
         if (useFirebase) {
             firebaseDB.ref('additionalCriteriaPerPractice').set(additionalCriteriaPerPractice);
+            firebaseDB.ref('removedCriteriaPerPractice').set(removedCriteriaPerPractice);
         }
         renderPractices();
     }
 
-    // Obtiene todos los criterios de una práctica (originales + extras)
+    // Obtiene todos los criterios de una práctica (originales + extras - eliminados)
     function getPracticeCriteria(practice) {
-        const base = practice.criteria || [];
+        const base = (practice.criteria || []).filter(
+            c => !(removedCriteriaPerPractice[practice.id] || []).includes(c)
+        );
         const extra = additionalCriteriaPerPractice[practice.id] || [];
-        // Eliminar duplicados (por si acaso)
         return [...new Set([...base, ...extra])];
     }
 
@@ -427,26 +439,57 @@
         if (!additionalCriteriaPerPractice[practiceId]) {
             additionalCriteriaPerPractice[practiceId] = [];
         }
-        let added = false;
+        let changed = false;
         criteriaList.forEach(criterion => {
+            // Si el criterio estaba en la lista de eliminados, restaurarlo
+            if (removedCriteriaPerPractice[practiceId]) {
+                const idx = removedCriteriaPerPractice[practiceId].indexOf(criterion);
+                if (idx !== -1) {
+                    removedCriteriaPerPractice[practiceId].splice(idx, 1);
+                    if (removedCriteriaPerPractice[practiceId].length === 0) {
+                        delete removedCriteriaPerPractice[practiceId];
+                    }
+                    changed = true;
+                }
+            }
+            // Añadir como extra si no estaba ya
             if (!additionalCriteriaPerPractice[practiceId].includes(criterion)) {
                 additionalCriteriaPerPractice[practiceId].push(criterion);
-                added = true;
+                changed = true;
             }
         });
-        if (added) {
-            saveAdditionalCriteria(); // ya llama a renderPractices()
+        if (changed) {
+            saveAdditionalCriteria();
         }
     }
 
-    // Elimina un criterio adicional de una práctica
+    // Elimina un criterio de una práctica (tanto base como extra)
     function removeCriterionFromPractice(practiceId, criterionCode) {
+        let changed = false;
+        // Si estaba en la lista de añadidos, quitarlo
         if (additionalCriteriaPerPractice[practiceId]) {
-            additionalCriteriaPerPractice[practiceId] = additionalCriteriaPerPractice[practiceId].filter(c => c !== criterionCode);
-            if (additionalCriteriaPerPractice[practiceId].length === 0) {
-                delete additionalCriteriaPerPractice[practiceId];
+            const idx = additionalCriteriaPerPractice[practiceId].indexOf(criterionCode);
+            if (idx !== -1) {
+                additionalCriteriaPerPractice[practiceId].splice(idx, 1);
+                if (additionalCriteriaPerPractice[practiceId].length === 0) {
+                    delete additionalCriteriaPerPractice[practiceId];
+                }
+                changed = true;
             }
-            saveAdditionalCriteria(); // ya llama a renderPractices()
+        }
+        // Si es un criterio base (del practice original), registrar la eliminación
+        const practice = practicesData.find(p => p.id === practiceId);
+        if (practice && (practice.criteria || []).includes(criterionCode)) {
+            if (!removedCriteriaPerPractice[practiceId]) {
+                removedCriteriaPerPractice[practiceId] = [];
+            }
+            if (!removedCriteriaPerPractice[practiceId].includes(criterionCode)) {
+                removedCriteriaPerPractice[practiceId].push(criterionCode);
+                changed = true;
+            }
+        }
+        if (changed) {
+            saveAdditionalCriteria();
         }
     }
 
@@ -524,7 +567,6 @@
 
         filtered.forEach(p => {
             const practiceCrit = getPracticeCriteria(p);
-            const baseCritSet = new Set(p.criteria || []);
             // Determinar qué criterios de los 13 NO están asignados
             const missingCriteria = ALL_CRITERIA_CODES.filter(c => !practiceCrit.includes(c));
             const showAddButton = missingCriteria.length > 0;
@@ -541,10 +583,8 @@
                         <h5 class="card-title fw-bold text-dark mb-3">${p.title}</h5>
                         <div class="mb-3 d-flex flex-wrap align-items-center gap-1" id="criteria-container-${p.id}">
                             ${practiceCrit.map(c => {
-                                const isBase = baseCritSet.has(c);
-                                const removeBtn = !isBase ? `<span class="remove-criterion" data-practice="${p.id}" data-criterion="${c}">❌</span>` : '';
                                 return `<span class="badge criterion-tag rounded-pill px-2 py-1" data-bs-toggle="popover" data-bs-trigger="hover" title="${c}" data-bs-content="${criteriaDescriptions[c] || 'Descripción no disponible.'}">
-                                            ${c} ${removeBtn}
+                                            ${c} <span class="remove-criterion" data-practice="${p.id}" data-criterion="${c}">❌</span>
                                         </span>`;
                             }).join('')}
                             ${showAddButton ? `<button class="btn btn-sm btn-outline-success btn-add-criteria ms-1" data-practice-id="${p.id}" title="Añadir criterios extra"><i class="fas fa-plus"></i> Criterio(s)</button>` : ''}
@@ -596,7 +636,7 @@
             });
         });
 
-        // Eventos para eliminar criterios adicionales (delegación)
+        // Eventos para eliminar criterios (cualquiera: base o añadido)
         document.querySelectorAll('.remove-criterion').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
