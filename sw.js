@@ -1,10 +1,11 @@
-const CACHE_NAME = 'arduinoblocks-v1.6';
+const CACHE_NAME = 'arduinoblocks-v1.7';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png'
 ];
 
 // CDN externos a cachear (versionados para estabilidad)
@@ -44,7 +45,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: Network-first para datos, Cache-first para assets estáticos
+// Fetch: Stale-while-revalidate para assets, Network-first para datos
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
