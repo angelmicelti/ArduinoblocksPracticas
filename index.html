@@ -596,10 +596,6 @@
 
         filtered.forEach(p => {
             const practiceCrit = getPracticeCriteria(p);
-            const baseCritSet = new Set(p.criteria || []);
-            // Determinar qué criterios de los 13 NO están asignados
-            const missingCriteria = ALL_CRITERIA_CODES.filter(c => !practiceCrit.includes(c));
-            const showAddButton = true;
 
             const cardCol = document.createElement('div');
             cardCol.className = 'col';
@@ -612,13 +608,14 @@
                         </div>
                         <h5 class="card-title fw-bold text-dark mb-3">${p.title}</h5>
                         <div class="mb-3 d-flex flex-wrap align-items-center gap-1" id="criteria-container-${p.id}">
+                            ${practiceCrit.length === 0 ? '<span class="text-muted fst-italic" style="font-size:0.8rem;">Sin criterios asignados</span>' : ''}
                             ${practiceCrit.map(c => {
-                                const removeBtn = `<span class="remove-criterion" data-practice="${p.id}" data-criterion="${c}">❌</span>`;
+                                const removeBtn = `<span class="remove-criterion" data-practice="${p.id}" data-criterion="${c}" title="Eliminar criterio">❌</span>`;
                                 return `<span class="badge criterion-tag rounded-pill px-2 py-1" data-bs-toggle="popover" data-bs-trigger="hover" title="${c}" data-bs-content="${criteriaDescriptions[c] || 'Descripción no disponible.'}">
                                             ${c} ${removeBtn}
                                         </span>`;
                             }).join('')}
-                            ${showAddButton ? `<button class="btn btn-sm btn-outline-success btn-add-criteria ms-1" data-practice-id="${p.id}" title="Añadir criterios extra"><i class="fas fa-plus"></i> Criterio(s)</button>` : ''}
+                            <button class="btn btn-sm btn-outline-success btn-add-criteria ms-1" data-practice-id="${p.id}" title="Añadir criterios extra"><i class="fas fa-plus"></i> Criterio(s)</button>
                         </div>
                         <div class="mt-auto">
                             <a href="${p.url}" target="_blank" class="btn btn-outline-primary w-100 rounded-pill py-2 fw-bold">
@@ -687,15 +684,17 @@
             });
         });
 
-        // Eventos para eliminar criterios adicionales (delegación)
+        // Eventos para eliminar criterios (base o adicional)
         document.querySelectorAll('.remove-criterion').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
+                // Ocultar todos los popovers abiertos para que no se queden en pantalla
+                document.querySelectorAll('.popover.show').forEach(pop => {
+                    pop.classList.remove('show');
+                });
                 const practiceId = el.getAttribute('data-practice');
                 const criterion = el.getAttribute('data-criterion');
-                if (confirm(`¿Eliminar el criterio ${criterion} de esta práctica?`)) {
-                    removeCriterionFromPractice(practiceId, criterion);
-                }
+                removeCriterionFromPractice(practiceId, criterion);
             });
         });
     }
