@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arduinoblocks-v1.11';
+const CACHE_NAME = 'arduinoblocks-v1.12';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
