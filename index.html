@@ -528,7 +528,7 @@
         const removed = additionalCriteriaPerPractice[practice.id + '_removed'] || [];
         const removedSet = new Set(removed);
         // Eliminar duplicados y excluir los eliminados por el usuario
-        return [...new Set([...base, ...extra])].filter(c => !removedSet.has(c));
+        return [...new Set([...base, ...extra])].filter(c => !removedSet.has(c)).sort();
     }
 
     // Añade uno o varios criterios a una práctica
