@@ -19,7 +19,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root { --sidebar-width: 280px; }
-        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .sidebar {
             width: var(--sidebar-width);
             height: 100vh;
@@ -35,6 +35,7 @@
         .main-content {
             margin-left: var(--sidebar-width);
             padding: 2rem;
+            position: relative;
         }
         .practice-card {
             border: none;
@@ -123,6 +124,36 @@
             line-height: 1.5;
             white-space: normal !important;
         }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .firebase-connected #firebaseStatusDot { background: #198754 !important; animation: none !important; }
+        .firebase-connected #firebaseStatusText { color: #198754 !important; }
+        .firebase-disconnected #firebaseStatusDot { background: #dc3545 !important; animation: none !important; }
+        .firebase-disconnected #firebaseStatusText { color: #dc3545 !important; }
+        .firebase-local #firebaseStatusDot { background: #fd7e14 !important; animation: none !important; }
+        .firebase-local #firebaseStatusText { color: #b8680d !important; }
+        /* Colores pastel por categoría */
+        .cat-leds { --cat-border: #f5c6c6; --cat-accent: #d9534f; --cat-text: #a94442; }
+        .cat-sensores { --cat-border: #b8daff; --cat-accent: #2a8fd4; --cat-text: #1a5f8e; }
+        .cat-movimiento { --cat-border: #b1dfbb; --cat-accent: #3d8b4f; --cat-text: #2d6b3f; }
+        .cat-pantallas { --cat-border: #f5d5b0; --cat-accent: #d4850a; --cat-text: #a56808; }
+        .cat-proyectos { --cat-border: #d0c0e8; --cat-accent: #7b4faa; --cat-text: #5e3a82; }
+        .cat-otros { --cat-border: #b0e8e8; --cat-accent: #1a9e9e; --cat-text: #147575; }
+        .practice-card.cat-leds { border-top: 4px solid var(--cat-accent); }
+        .practice-card.cat-sensores { border-top: 4px solid var(--cat-accent); }
+        .practice-card.cat-movimiento { border-top: 4px solid var(--cat-accent); }
+        .practice-card.cat-pantallas { border-top: 4px solid var(--cat-accent); }
+        .practice-card.cat-proyectos { border-top: 4px solid var(--cat-accent); }
+        .practice-card.cat-otros { border-top: 4px solid var(--cat-accent); }
+        .practice-card .cat-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 8px; border-radius: 6px; }
+        .cat-leds .cat-label { background: var(--cat-border); color: var(--cat-text); }
+        .cat-sensores .cat-label { background: var(--cat-border); color: var(--cat-text); }
+        .cat-movimiento .cat-label { background: var(--cat-border); color: var(--cat-text); }
+        .cat-pantallas .cat-label { background: var(--cat-border); color: var(--cat-text); }
+        .cat-proyectos .cat-label { background: var(--cat-border); color: var(--cat-text); }
+        .cat-otros .cat-label { background: var(--cat-border); color: var(--cat-text); }
     </style>
 </head>
 <body>
@@ -145,7 +176,7 @@
         <div id="categories-all" class="category-container" style="display:none;"></div>
     </div>
 
-    <div class="mt-4 pt-4 border-top">
+    <div class="mt-3 pt-3 border-top">
         <label class="form-label small fw-bold text-muted text-uppercase">Buscador</label>
         <div class="input-group input-group-sm">
             <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
@@ -157,6 +188,14 @@
 
 <div class="main-content">
     <div class="container-fluid">
+        <!-- Indicador Firebase arriba a la derecha -->
+        <div id="firebaseStatusBar" class="position-absolute" style="top:1.5rem;right:1.5rem;z-index:10;">
+            <div id="firebaseStatus" class="d-flex align-items-center gap-2 small rounded-3 px-3 py-2" style="background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);">
+                <span id="firebaseStatusDot" class="rounded-circle d-inline-block" style="width:8px;height:8px;background:#ffc107;animation:pulse-dot 1.5s infinite;"></span>
+                <span id="firebaseStatusText" class="fw-semibold" style="color:#b8860b;font-size:0.75rem;">Conectando...</span>
+            </div>
+        </div>
+
         <header class="mb-5">
             <h1 class="fw-bold" id="viewTitle">Prácticas de 4º ESO</h1>
             <p class="text-muted" id="viewDesc">Ordenadas según el programa oficial.</p>
@@ -211,7 +250,6 @@
 	  messagingSenderId: "584506334188",
 	  appId: "1:584506334188:web:42851bdb11037c01cf7ec9"
 	};
-
     let firebaseDB = null;
     let useFirebase = false;
     let lastSyncHash = ''; // Para evitar re-renderizados duplicados
@@ -255,7 +293,7 @@
     const criteriaDescriptions = {
         "TEC.4.1.1": "Idear y planificar soluciones tecnológicas emprendedoras que generen un valor para la comunidad, a partir de la observación y el análisis del entorno más cercano, estudiando sus necesidades, requisitos y posibilidades de mejora.",
         "TEC.4.1.2": "Aplicar con iniciativa estrategias colaborativas de gestión de proyectos con una perspectiva interdisciplinar y siguiendo un proceso iterativo de validación, desde la fase de ideación hasta la difusión de la solución.",
-                "TEC.4.1.3.": "Abordar la gestión del proyecto de forma creativa, aplicando estrategias y técnicas colaborativas adecuadas, así como métodos de investigación en la ideación de soluciones lo más eficientes, accesibles e innovadoras posibles.", 
+                "TEC.4.1.3": "Abordar la gestión del proyecto de forma creativa, aplicando estrategias y técnicas colaborativas adecuadas, así como métodos de investigación en la ideación de soluciones lo más eficientes, accesibles e innovadoras posibles.", 
         "TEC.4.2.1": "Analizar el diseño de un producto que dé respuesta a una necesidad planteada, evaluando su demanda, evolución y previsión de fin de ciclo de vida con un criterio ético, responsable e inclusivo.",
         "TEC.4.2.2": "Fabricar productos y soluciones tecnológicas, aplicando herramientas de diseño asistido, técnicas de elaboración manual, mecánica y digital y utilizando los materiales y recursos mecánicos, eléctricos, electrónicos y digitales adecuados.",
         "TEC.4.3.1": "Intercambiar información y fomentar el trabajo en equipo de manera asertiva, empleando las herramientas digitales adecuadas junto con el vocabulario técnico, símbolos y esquemas de sistemas tecnológicos apropiados.",
@@ -393,103 +431,114 @@
     // PERSISTENCIA: criterios adicionales por práctica
     // --------------------------------------------------------------
     let additionalCriteriaPerPractice = {}; // { "P01_L": ["TEC.4.5.1", ...] }
-    let removedCriteriaPerPractice = {}; // { "P01_L": ["TEC.4.4.1"] } criterios base eliminados
 
     function loadStorage() {
         // Cargar datos desde localStorage siempre de forma inmediata
-        const stored = localStorage.getItem("additionalCriteriaPerPractice");
-        if (stored) additionalCriteriaPerPractice = JSON.parse(stored);
-        else additionalCriteriaPerPractice = {};
+        try {
+            const stored = localStorage.getItem("additionalCriteriaPerPractice");
+            if (stored) additionalCriteriaPerPractice = JSON.parse(stored);
+            else additionalCriteriaPerPractice = {};
+        } catch (e) {
+            console.error("Error al leer localStorage, se reinician los datos:", e.message);
+            additionalCriteriaPerPractice = {};
+            localStorage.removeItem("additionalCriteriaPerPractice");
+        }
+        lastSyncHash = JSON.stringify(additionalCriteriaPerPractice);
+    }
 
-        const storedRemoved = localStorage.getItem("removedCriteriaPerPractice");
-        if (storedRemoved) removedCriteriaPerPractice = JSON.parse(storedRemoved);
-        else removedCriteriaPerPractice = {};
-
-        lastSyncHash = JSON.stringify(additionalCriteriaPerPractice) + JSON.stringify(removedCriteriaPerPractice);
+    // Actualiza el indicador visual de estado de Firebase
+    function updateFirebaseStatus(status) {
+        const container = document.getElementById('firebaseStatus');
+        const text = document.getElementById('firebaseStatusText');
+        container.className = 'd-flex align-items-center gap-2 small rounded-3 px-3 py-2';
+        if (status === 'connected') {
+            container.classList.add('firebase-connected');
+            container.style.background = 'rgba(25,135,84,0.08)';
+            container.style.borderColor = 'rgba(25,135,84,0.25)';
+            text.innerHTML = '<i class="fas fa-cloud me-1"></i> Firebase conectado';
+        } else if (status === 'error') {
+            container.classList.add('firebase-disconnected');
+            container.style.background = 'rgba(220,53,69,0.08)';
+            container.style.borderColor = 'rgba(220,53,69,0.25)';
+            text.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Sin conexión';
+        } else if (status === 'not-configured') {
+            container.classList.add('firebase-local');
+            container.style.background = 'rgba(253,126,20,0.08)';
+            container.style.borderColor = 'rgba(253,126,20,0.25)';
+            text.innerHTML = '<i class="fas fa-hdd me-1"></i> Modo local';
+        }
     }
 
     // Conecta Firebase en segundo plano (no bloquea la UI)
     async function connectFirebaseSync() {
         const ok = await initFirebase();
         if (ok) {
-            useFirebase = true;
-            // Escuchar cambios en tiempo real desde Firebase
-            firebaseDB.ref('additionalCriteriaPerPractice').on('value', (snapshot) => {
-                const data = snapshot.val() || {};
-                const removedStr = JSON.stringify(removedCriteriaPerPractice);
-                const newHash = JSON.stringify(data) + removedStr;
-                if (newHash !== lastSyncHash) {
-                    lastSyncHash = newHash;
-                    additionalCriteriaPerPractice = data;
-                    localStorage.setItem("additionalCriteriaPerPractice", JSON.stringify(data));
-                    if (window.__appInitialized) {
-                        renderPractices();
+            try {
+                // Verificar que la conexión funciona leyendo un dato
+                await firebaseDB.ref('.info/connected').once('value');
+                useFirebase = true;
+                updateFirebaseStatus('connected');
+                // Escuchar cambios en tiempo real desde Firebase
+                firebaseDB.ref('additionalCriteriaPerPractice').on('value', (snapshot) => {
+                    const data = snapshot.val() || {};
+                    const newHash = JSON.stringify(data);
+                    if (newHash !== lastSyncHash) {
+                        lastSyncHash = newHash;
+                        additionalCriteriaPerPractice = data;
+                        localStorage.setItem("additionalCriteriaPerPractice", newHash);
+                        if (window.__appInitialized) {
+                            renderPractices();
+                        }
                     }
-                }
-            });
-            // Escuchar cambios en removedCriteriaPerPractice desde Firebase
-            firebaseDB.ref('removedCriteriaPerPractice').on('value', (snapshot) => {
-                const data = snapshot.val() || {};
-                const addStr = JSON.stringify(additionalCriteriaPerPractice);
-                const newHash = addStr + JSON.stringify(data);
-                if (newHash !== lastSyncHash) {
-                    lastSyncHash = newHash;
-                    removedCriteriaPerPractice = data;
-                    localStorage.setItem("removedCriteriaPerPractice", JSON.stringify(data));
-                    if (window.__appInitialized) {
-                        renderPractices();
+                });
+                // Detectar desconexión
+                firebaseDB.ref('.info/connected').on('value', (snap) => {
+                    if (snap.val() === false && useFirebase) {
+                        updateFirebaseStatus('error');
+                    } else if (snap.val() === true) {
+                        updateFirebaseStatus('connected');
                     }
-                }
-            });
+                });
+            } catch (e) {
+                console.error("Error al verificar conexión Firebase:", e.message);
+                useFirebase = false;
+                updateFirebaseStatus('error');
+            }
+        } else {
+            updateFirebaseStatus('not-configured');
         }
     }
 
     function saveAdditionalCriteria() {
         const dataStr = JSON.stringify(additionalCriteriaPerPractice);
-        const removedStr = JSON.stringify(removedCriteriaPerPractice);
-        lastSyncHash = dataStr + removedStr;
+        lastSyncHash = dataStr;
         // Siempre guardar en localStorage como respaldo local
         localStorage.setItem("additionalCriteriaPerPractice", dataStr);
-        localStorage.setItem("removedCriteriaPerPractice", removedStr);
         // Si Firebase está activo, sincronizar a la nube
         if (useFirebase) {
             firebaseDB.ref('additionalCriteriaPerPractice').set(additionalCriteriaPerPractice);
-            firebaseDB.ref('removedCriteriaPerPractice').set(removedCriteriaPerPractice);
         }
         renderPractices();
     }
 
-    // Obtiene todos los criterios de una práctica (originales + extras, menos los eliminados)
+    // Obtiene todos los criterios de una práctica (originales + extras)
     function getPracticeCriteria(practice) {
         const base = practice.criteria || [];
         const extra = additionalCriteriaPerPractice[practice.id] || [];
-        const removed = removedCriteriaPerPractice[practice.id] || [];
-        const all = [...new Set([...base, ...extra])];
-        return all.filter(c => !removed.includes(c));
+        // Eliminar duplicados (por si acaso)
+        return [...new Set([...base, ...extra])];
     }
 
-    // Añade uno o varios criterios a una práctica (y los des-elimina si estaban removidos)
+    // Añade uno o varios criterios a una práctica
     function addCriteriaToPractice(practiceId, criteriaList) {
         if (!additionalCriteriaPerPractice[practiceId]) {
             additionalCriteriaPerPractice[practiceId] = [];
         }
         let added = false;
         criteriaList.forEach(criterion => {
-            // Si este criterio fue previamente eliminado, des-eliminarlo
-            if (removedCriteriaPerPractice[practiceId]) {
-                removedCriteriaPerPractice[practiceId] = removedCriteriaPerPractice[practiceId].filter(c => c !== criterion);
-                if (removedCriteriaPerPractice[practiceId].length === 0) {
-                    delete removedCriteriaPerPractice[practiceId];
-                }
-            }
-            // Comprobar si es un criterio base
-            const practice = practicesData.find(p => p.id === practiceId);
-            const isBase = practice && (practice.criteria || []).includes(criterion);
-            if (!isBase && !additionalCriteriaPerPractice[practiceId].includes(criterion)) {
+            if (!additionalCriteriaPerPractice[practiceId].includes(criterion)) {
                 additionalCriteriaPerPractice[practiceId].push(criterion);
                 added = true;
-            } else if (isBase) {
-                added = true; // Fue eliminado y ahora se agrega de vuelta
             }
         });
         if (added) {
@@ -497,29 +546,15 @@
         }
     }
 
-    // Elimina un criterio de una práctica (base o adicional)
+    // Elimina un criterio adicional de una práctica
     function removeCriterionFromPractice(practiceId, criterionCode) {
-        const practice = practicesData.find(p => p.id === practiceId);
-        const isBase = practice && (practice.criteria || []).includes(criterionCode);
-
-        if (isBase) {
-            // Es un criterio base: rastrearlo como eliminado
-            if (!removedCriteriaPerPractice[practiceId]) {
-                removedCriteriaPerPractice[practiceId] = [];
+        if (additionalCriteriaPerPractice[practiceId]) {
+            additionalCriteriaPerPractice[practiceId] = additionalCriteriaPerPractice[practiceId].filter(c => c !== criterionCode);
+            if (additionalCriteriaPerPractice[practiceId].length === 0) {
+                delete additionalCriteriaPerPractice[practiceId];
             }
-            if (!removedCriteriaPerPractice[practiceId].includes(criterionCode)) {
-                removedCriteriaPerPractice[practiceId].push(criterionCode);
-            }
-        } else {
-            // Es un criterio adicional: eliminar de la lista adicional
-            if (additionalCriteriaPerPractice[practiceId]) {
-                additionalCriteriaPerPractice[practiceId] = additionalCriteriaPerPractice[practiceId].filter(c => c !== criterionCode);
-                if (additionalCriteriaPerPractice[practiceId].length === 0) {
-                    delete additionalCriteriaPerPractice[practiceId];
-                }
-            }
+            saveAdditionalCriteria(); // ya llama a renderPractices()
         }
-        saveAdditionalCriteria(); // ya llama a renderPractices()
     }
 
     // --------------------------------------------------------------
@@ -596,26 +631,30 @@
 
         filtered.forEach(p => {
             const practiceCrit = getPracticeCriteria(p);
+            const baseCritSet = new Set(p.criteria || []);
+            // Determinar qué criterios de los 13 NO están asignados
+            const missingCriteria = ALL_CRITERIA_CODES.filter(c => !practiceCrit.includes(c));
+            const showAddButton = missingCriteria.length > 0;
 
             const cardCol = document.createElement('div');
             cardCol.className = 'col';
             cardCol.innerHTML = `
-                <div class="card h-100 practice-card">
+                <div class="card h-100 practice-card cat-${p.category}">
                     <div class="card-body p-4 d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <span class="badge badge-id rounded px-2 py-1">${p.id}</span>
-                            <small class="text-primary fw-bold text-uppercase">${p.category}</small>
+                            <span class="cat-label">${categoriesMap[p.category] || p.category}</span>
                         </div>
                         <h5 class="card-title fw-bold text-dark mb-3">${p.title}</h5>
                         <div class="mb-3 d-flex flex-wrap align-items-center gap-1" id="criteria-container-${p.id}">
-                            ${practiceCrit.length === 0 ? '<span class="text-muted fst-italic" style="font-size:0.8rem;">Sin criterios asignados</span>' : ''}
                             ${practiceCrit.map(c => {
-                                const removeBtn = `<span class="remove-criterion" data-practice="${p.id}" data-criterion="${c}" title="Eliminar criterio">❌</span>`;
+                                const isBase = baseCritSet.has(c);
+                                const removeBtn = !isBase ? `<span class="remove-criterion" data-practice="${p.id}" data-criterion="${c}">❌</span>` : '';
                                 return `<span class="badge criterion-tag rounded-pill px-2 py-1" data-bs-toggle="popover" data-bs-trigger="hover" title="${c}" data-bs-content="${criteriaDescriptions[c] || 'Descripción no disponible.'}">
                                             ${c} ${removeBtn}
                                         </span>`;
                             }).join('')}
-                            <button class="btn btn-sm btn-outline-success btn-add-criteria ms-1" data-practice-id="${p.id}" title="Añadir criterios extra"><i class="fas fa-plus"></i> Criterio(s)</button>
+                            ${showAddButton ? `<button class="btn btn-sm btn-outline-success btn-add-criteria ms-1" data-practice-id="${p.id}" title="Añadir criterios extra"><i class="fas fa-plus"></i> Criterio(s)</button>` : ''}
                         </div>
                         <div class="mt-auto">
                             <a href="${p.url}" target="_blank" class="btn btn-outline-primary w-100 rounded-pill py-2 fw-bold">
@@ -684,17 +723,15 @@
             });
         });
 
-        // Eventos para eliminar criterios (base o adicional)
+        // Eventos para eliminar criterios adicionales (delegación)
         document.querySelectorAll('.remove-criterion').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // Ocultar todos los popovers abiertos para que no se queden en pantalla
-                document.querySelectorAll('.popover.show').forEach(pop => {
-                    pop.classList.remove('show');
-                });
                 const practiceId = el.getAttribute('data-practice');
                 const criterion = el.getAttribute('data-criterion');
-                removeCriterionFromPractice(practiceId, criterion);
+                if (confirm(`¿Eliminar el criterio ${criterion} de esta práctica?`)) {
+                    removeCriterionFromPractice(practiceId, criterion);
+                }
             });
         });
     }
