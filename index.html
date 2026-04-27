@@ -92,7 +92,20 @@
         .popover-body { white-space: normal; word-wrap: break-word; }
         @media (max-width: 768px) {
             .sidebar { width: 100%; height: auto; position: relative; }
-            .main-content { margin-left: 0; }
+            .main-content { margin-left: 0; padding: 1rem; }
+            /* Firebase status: posicion estatica, no absolute, debajo del titulo */
+            #firebaseStatusBar {
+                position: static !important;
+                display: block !important;
+                margin-bottom: 0.75rem;
+            }
+            #firebaseStatusText { font-size: 0.7rem !important; }
+            header h1 { font-size: 1.35rem; }
+            header .mb-5 { margin-bottom: 1.5rem !important; }
+        }
+        @media (min-width: 769px) {
+            /* En desktop, padding-right para que el titulo no choque con Firebase absolute */
+            .main-content header { padding-right: 210px; }
         }
         .btn-add-criteria {
             font-size: 0.7rem;
@@ -161,7 +174,7 @@
 <div class="sidebar">
     <div class="text-center mb-4">
         <h4 class="fw-bold text-dark mb-1"><i class="fas fa-microchip text-primary me-2"></i>ArduinoBlocks</h4>
-        <span class="badge bg-light text-muted border">13 criterios TEC4</span>
+        <a href="https://practicasarduinoblocks.blogspot.com/" target="_blank" class="badge bg-light text-muted border text-decoration-none" style="font-size:0.75rem;"><i class="fas fa-blog me-1"></i>Blog Prácticas de Arduinoblocks</a>
     </div>
     
     <div id="navigation-modes">
@@ -189,7 +202,7 @@
 <div class="main-content">
     <div class="container-fluid">
         <!-- Indicador Firebase arriba a la derecha -->
-        <div id="firebaseStatusBar" class="position-absolute" style="top:1.5rem;right:1.5rem;z-index:10;">
+        <div id="firebaseStatusBar" class="position-absolute d-none d-md-block" style="top:0.75rem;right:1rem;z-index:10;">
             <div id="firebaseStatus" class="d-flex align-items-center gap-2 small rounded-3 px-3 py-2" style="background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);">
                 <span id="firebaseStatusDot" class="rounded-circle d-inline-block" style="width:8px;height:8px;background:#ffc107;animation:pulse-dot 1.5s infinite;"></span>
                 <span id="firebaseStatusText" class="fw-semibold" style="color:#b8860b;font-size:0.75rem;">Conectando...</span>
