@@ -241,15 +241,15 @@
     //
     // Si no configuras Firebase, la app usará localStorage local (sin sincronizar).
     // --------------------------------------------------------------
-	const firebaseConfig = {
-	  apiKey: "AIzaSyCYLbcE_zVQpZdolgZww18uGvLhdOLo-wM",
-	  authDomain: "arduinoblocks01.firebaseapp.com",
-	  databaseURL: "https://arduinoblocks01-default-rtdb.europe-west1.firebasedatabase.app",
-	  projectId: "arduinoblocks01",
-	  storageBucket: "arduinoblocks01.firebasestorage.app",
-	  messagingSenderId: "584506334188",
-	  appId: "1:584506334188:web:42851bdb11037c01cf7ec9"
-	};
+        const firebaseConfig = {
+          apiKey: "AIzaSyCYLbcE_zVQpZdolgZww18uGvLhdOLo-wM",
+          authDomain: "arduinoblocks01.firebaseapp.com",
+          databaseURL: "https://arduinoblocks01-default-rtdb.europe-west1.firebasedatabase.app",
+          projectId: "arduinoblocks01",
+          storageBucket: "arduinoblocks01.firebasestorage.app",
+          messagingSenderId: "584506334188",
+          appId: "1:584506334188:web:42851bdb11037c01cf7ec9"
+        };
     let firebaseDB = null;
     let useFirebase = false;
     let lastSyncHash = ''; // Para evitar re-renderizados duplicados
@@ -431,6 +431,7 @@
     // PERSISTENCIA: criterios adicionales por práctica
     // --------------------------------------------------------------
     let additionalCriteriaPerPractice = {}; // { "P01_L": ["TEC.4.5.1", ...] }
+    let removedBaseCriteriaPerPractice = {}; // { "P01_L": ["TEC.4.4.1", ...] } criterios base eliminados por el usuario
 
     function loadStorage() {
         // Cargar datos desde localStorage siempre de forma inmediata
@@ -443,7 +444,16 @@
             additionalCriteriaPerPractice = {};
             localStorage.removeItem("additionalCriteriaPerPractice");
         }
-        lastSyncHash = JSON.stringify(additionalCriteriaPerPractice);
+        try {
+            const storedRemoved = localStorage.getItem("removedBaseCriteriaPerPractice");
+            if (storedRemoved) removedBaseCriteriaPerPractice = JSON.parse(storedRemoved);
+            else removedBaseCriteriaPerPractice = {};
+        } catch (e) {
+            console.error("Error al leer localStorage (removedBase), se reinician los datos:", e.message);
+            removedBaseCriteriaPerPractice = {};
+            localStorage.removeItem("removedBaseCriteriaPerPractice");
+        }
+        lastSyncHash = JSON.stringify({a: additionalCriteriaPerPractice, r: removedBaseCriteriaPerPractice});
     }
 
     // Actualiza el indicador visual de estado de Firebase
@@ -511,19 +521,23 @@
 
     function saveAdditionalCriteria() {
         const dataStr = JSON.stringify(additionalCriteriaPerPractice);
-        lastSyncHash = dataStr;
+        const removedStr = JSON.stringify(removedBaseCriteriaPerPractice);
+        lastSyncHash = JSON.stringify({a: additionalCriteriaPerPractice, r: removedBaseCriteriaPerPractice});
         // Siempre guardar en localStorage como respaldo local
         localStorage.setItem("additionalCriteriaPerPractice", dataStr);
+        localStorage.setItem("removedBaseCriteriaPerPractice", removedStr);
         // Si Firebase está activo, sincronizar a la nube
         if (useFirebase) {
             firebaseDB.ref('additionalCriteriaPerPractice').set(additionalCriteriaPerPractice);
+            firebaseDB.ref('removedBaseCriteriaPerPractice').set(removedBaseCriteriaPerPractice);
         }
         renderPractices();
     }
 
-    // Obtiene todos los criterios de una práctica (originales + extras)
+    // Obtiene todos los criterios de una práctica (originales + extras - eliminados)
     function getPracticeCriteria(practice) {
-        const base = practice.criteria || [];
+        const removed = removedBaseCriteriaPerPractice[practice.id] || [];
+        const base = (practice.criteria || []).filter(c => !removed.includes(c));
         const extra = additionalCriteriaPerPractice[practice.id] || [];
         // Eliminar duplicados (por si acaso)
         return [...new Set([...base, ...extra])];
@@ -668,6 +682,10 @@
         });
 
         // Destruir popovers anteriores para evitar acumulación y persistencia
+        // Primero eliminar del DOM cualquier popover huérfano que siga visible
+        document.querySelectorAll('.popover.show').forEach(pop => {
+            pop.remove();
+        });
         document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
             const existing = bootstrap.Popover.getInstance(el);
             if (existing) existing.dispose();
@@ -723,12 +741,19 @@
             });
         });
 
-        // Eventos para eliminar criterios adicionales (delegación)
+        // Eventos para eliminar criterios (delegación) — funciona tanto para base como adicionales
         document.querySelectorAll('.remove-criterion').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const practiceId = el.getAttribute('data-practice');
                 const criterion = el.getAttribute('data-criterion');
+                // Ocultar popover del criterio antes de eliminar
+                const tagEl = el.closest('.criterion-tag');
+                if (tagEl) {
+                    const popInstance = bootstrap.Popover.getInstance(tagEl);
+                    if (popInstance) popInstance.dispose();
+                }
+                document.querySelectorAll('.popover.show').forEach(pop => pop.remove());
                 if (confirm(`¿Eliminar el criterio ${criterion} de esta práctica?`)) {
                     removeCriterionFromPractice(practiceId, criterion);
                 }
