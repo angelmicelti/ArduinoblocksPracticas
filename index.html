@@ -31,6 +31,45 @@
             z-index: 1000;
             padding: 1.5rem;
             overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+        /* Overlay oscuro al abrir sidebar en movil */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 999;
+        }
+        .sidebar-overlay.active { display: block; }
+        /* Boton hamburger */
+        .mobile-header {
+            display: none;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: white;
+            border-bottom: 1px solid #dee2e6;
+            padding: 0.75rem 1rem;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .mobile-header .btn-hamburger {
+            border: none;
+            background: none;
+            font-size: 1.4rem;
+            color: #495057;
+            padding: 0.25rem 0.5rem;
+            cursor: pointer;
+        }
+        .mobile-header .mobile-title {
+            font-weight: 700;
+            font-size: 1rem;
+            color: #212529;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .main-content {
             margin-left: var(--sidebar-width);
@@ -44,9 +83,11 @@
             background: white;
             box-shadow: 0 4px 6px rgba(0,0,0,0.02);
         }
-        .practice-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        @media (hover: hover) {
+            .practice-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            }
         }
         .btn-mode {
             text-align: left;
@@ -90,9 +131,44 @@
         }
         .popover-header { background-color: #0dcaf0; color: white; font-weight: bold; }
         .popover-body { white-space: normal; word-wrap: break-word; }
+        /* === RESPONSIVE MOVIL === */
         @media (max-width: 768px) {
-            .sidebar { width: 100%; height: auto; position: relative; }
-            .main-content { margin-left: 0; }
+            .mobile-header { display: flex !important; }
+            .sidebar {
+                width: 280px;
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+                box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 1rem;
+            }
+            /* Firebase status: flujo normal debajo del titulo, no absolute */
+            #firebaseStatusBar {
+                position: static !important;
+                margin-bottom: 0.75rem;
+            }
+            #firebaseStatusText { font-size: 0.7rem !important; }
+            header h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+            header .mb-5 { margin-bottom: 1.5rem !important; }
+            header .d-flex.flex-wrap { gap: 0.5rem; }
+            /* Texto hover -> toca en movil */
+            .desktop-hint { display: none !important; }
+            .mobile-hint { display: inline !important; }
+            /* Modal responsive */
+            .modal-dialog.modal-xl {
+                max-width: 95vw;
+                margin: 0.5rem auto;
+            }
+        }
+        @media (min-width: 769px) {
+            .desktop-hint { display: inline; }
+            .mobile-hint { display: none !important; }
+            /* En desktop, header con padding-right para no chocar con Firebase absolute */
+            .main-content header { padding-right: 220px; }
         }
         .btn-add-criteria {
             font-size: 0.7rem;
@@ -158,7 +234,15 @@
 </head>
 <body>
 
-<div class="sidebar">
+<!-- Header movil con hamburger -->
+<div class="mobile-header">
+    <button class="btn-hamburger" id="btnHamburger" aria-label="Abrir menú"><i class="fas fa-bars"></i></button>
+    <span class="mobile-title"><i class="fas fa-microchip text-primary me-1"></i>ArduinoBlocks</span>
+    <div id="mobileFirebaseStatus" class="d-flex align-items-center gap-1 ms-auto" style="font-size:0.7rem;"></div>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="sidebar" id="sidebar">
     <div class="text-center mb-4">
         <h4 class="fw-bold text-dark mb-1"><i class="fas fa-microchip text-primary me-2"></i>ArduinoBlocks</h4>
         <span class="badge bg-light text-muted border">13 criterios TEC4</span>
@@ -189,7 +273,7 @@
 <div class="main-content">
     <div class="container-fluid">
         <!-- Indicador Firebase arriba a la derecha -->
-        <div id="firebaseStatusBar" class="position-absolute" style="top:1.5rem;right:1.5rem;z-index:10;">
+        <div id="firebaseStatusBar" class="d-none d-md-block position-absolute" style="top:1.5rem;right:1.5rem;z-index:10;">
             <div id="firebaseStatus" class="d-flex align-items-center gap-2 small rounded-3 px-3 py-2" style="background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);">
                 <span id="firebaseStatusDot" class="rounded-circle d-inline-block" style="width:8px;height:8px;background:#ffc107;animation:pulse-dot 1.5s infinite;"></span>
                 <span id="firebaseStatusText" class="fw-semibold" style="color:#b8860b;font-size:0.75rem;">Conectando...</span>
@@ -201,7 +285,8 @@
             <p class="text-muted" id="viewDesc">Ordenadas según el programa oficial.</p>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-primary rounded-pill px-3" id="counter">Cargando...</span>
-                <small class="text-muted"><i class="fas fa-info-circle"></i> Pasa el ratón por los criterios para ver su descripción.</small>
+                <small class="text-muted desktop-hint"><i class="fas fa-info-circle"></i> Pasa el ratón por los criterios para ver su descripción.</small>
+                <small class="text-muted mobile-hint" style="display:none;"><i class="fas fa-hand-pointer"></i> Toca un criterio para ver su descripción.</small>
             </div>
         </header>
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 row-cols-xxl-4 g-4" id="cardsGrid"></div>
@@ -431,7 +516,6 @@
     // PERSISTENCIA: criterios adicionales por práctica
     // --------------------------------------------------------------
     let additionalCriteriaPerPractice = {}; // { "P01_L": ["TEC.4.5.1", ...] }
-    let removedBaseCriteriaPerPractice = {}; // { "P01_L": ["TEC.4.4.1", ...] } criterios base eliminados por el usuario
 
     function loadStorage() {
         // Cargar datos desde localStorage siempre de forma inmediata
@@ -444,16 +528,7 @@
             additionalCriteriaPerPractice = {};
             localStorage.removeItem("additionalCriteriaPerPractice");
         }
-        try {
-            const storedRemoved = localStorage.getItem("removedBaseCriteriaPerPractice");
-            if (storedRemoved) removedBaseCriteriaPerPractice = JSON.parse(storedRemoved);
-            else removedBaseCriteriaPerPractice = {};
-        } catch (e) {
-            console.error("Error al leer localStorage (removedBase), se reinician los datos:", e.message);
-            removedBaseCriteriaPerPractice = {};
-            localStorage.removeItem("removedBaseCriteriaPerPractice");
-        }
-        lastSyncHash = JSON.stringify({a: additionalCriteriaPerPractice, r: removedBaseCriteriaPerPractice});
+        lastSyncHash = JSON.stringify(additionalCriteriaPerPractice);
     }
 
     // Actualiza el indicador visual de estado de Firebase
@@ -521,23 +596,19 @@
 
     function saveAdditionalCriteria() {
         const dataStr = JSON.stringify(additionalCriteriaPerPractice);
-        const removedStr = JSON.stringify(removedBaseCriteriaPerPractice);
-        lastSyncHash = JSON.stringify({a: additionalCriteriaPerPractice, r: removedBaseCriteriaPerPractice});
+        lastSyncHash = dataStr;
         // Siempre guardar en localStorage como respaldo local
         localStorage.setItem("additionalCriteriaPerPractice", dataStr);
-        localStorage.setItem("removedBaseCriteriaPerPractice", removedStr);
         // Si Firebase está activo, sincronizar a la nube
         if (useFirebase) {
             firebaseDB.ref('additionalCriteriaPerPractice').set(additionalCriteriaPerPractice);
-            firebaseDB.ref('removedBaseCriteriaPerPractice').set(removedBaseCriteriaPerPractice);
         }
         renderPractices();
     }
 
-    // Obtiene todos los criterios de una práctica (originales + extras - eliminados)
+    // Obtiene todos los criterios de una práctica (originales + extras)
     function getPracticeCriteria(practice) {
-        const removed = removedBaseCriteriaPerPractice[practice.id] || [];
-        const base = (practice.criteria || []).filter(c => !removed.includes(c));
+        const base = practice.criteria || [];
         const extra = additionalCriteriaPerPractice[practice.id] || [];
         // Eliminar duplicados (por si acaso)
         return [...new Set([...base, ...extra])];
@@ -682,10 +753,6 @@
         });
 
         // Destruir popovers anteriores para evitar acumulación y persistencia
-        // Primero eliminar del DOM cualquier popover huérfano que siga visible
-        document.querySelectorAll('.popover.show').forEach(pop => {
-            pop.remove();
-        });
         document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
             const existing = bootstrap.Popover.getInstance(el);
             if (existing) existing.dispose();
@@ -741,19 +808,12 @@
             });
         });
 
-        // Eventos para eliminar criterios (delegación) — funciona tanto para base como adicionales
+        // Eventos para eliminar criterios adicionales (delegación)
         document.querySelectorAll('.remove-criterion').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const practiceId = el.getAttribute('data-practice');
                 const criterion = el.getAttribute('data-criterion');
-                // Ocultar popover del criterio antes de eliminar
-                const tagEl = el.closest('.criterion-tag');
-                if (tagEl) {
-                    const popInstance = bootstrap.Popover.getInstance(tagEl);
-                    if (popInstance) popInstance.dispose();
-                }
-                document.querySelectorAll('.popover.show').forEach(pop => pop.remove());
                 if (confirm(`¿Eliminar el criterio ${criterion} de esta práctica?`)) {
                     removeCriterionFromPractice(practiceId, criterion);
                 }
@@ -804,6 +864,64 @@
             });
         });
     }
+
+    // --------------------------------------------------------------
+    // HAMBURGER MENU Y SIDEBAR MOVIL
+    // --------------------------------------------------------------
+    (function() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const btnHamburger = document.getElementById('btnHamburger');
+        if (!sidebar || !overlay || !btnHamburger) return;
+
+        function openSidebar() {
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeSidebar() {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        btnHamburger.addEventListener('click', openSidebar);
+        overlay.addEventListener('click', closeSidebar);
+
+        // Cerrar sidebar al hacer click en un enlace de categoria
+        document.querySelectorAll('.cat-link').forEach(link => {
+            link.addEventListener('click', closeSidebar);
+        });
+    })();
+
+    // --------------------------------------------------------------
+    // ESTADO FIREBASE EN MOBILE HEADER
+    // --------------------------------------------------------------
+    // Sobreescribir updateFirebaseStatus para que tambien actualice el indicador movil
+    const _originalUpdateFirebaseStatus = window.updateFirebaseStatus;
+    window.updateFirebaseStatus = function(status) {
+        // Llamar a la funcion original
+        if (typeof _originalUpdateFirebaseStatus === 'function') {
+            _originalUpdateFirebaseStatus(status);
+        }
+        // Actualizar indicador en mobile header
+        const mobileEl = document.getElementById('mobileFirebaseStatus');
+        if (mobileEl) {
+            const colors = {
+                'connected': '#198754',
+                'error': '#dc3545',
+                'not-configured': '#fd7e14'
+            };
+            const color = colors[status] || '#ffc107';
+            const labels = {
+                'connected': 'Conectado',
+                'error': 'Desconectado',
+                'not-configured': 'Local'
+            };
+            const label = labels[status] || '...';
+            mobileEl.innerHTML = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + color + ';"></span>' +
+                '<span style="color:' + color + ';font-weight:600;">' + label + '</span>';
+        }
+    };
 </script>
 </body>
 </html>
