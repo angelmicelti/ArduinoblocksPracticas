@@ -685,7 +685,7 @@
                             ${showAddButton ? `<button class="btn btn-sm btn-outline-success btn-add-criteria ms-1" data-practice-id="${p.id}" title="Añadir criterios extra"><i class="fas fa-plus"></i> Criterio(s)</button>` : ''}
                         </div>
                         <div class="mt-auto">
-                            <a href="${p.url}" target="_blank" class="btn btn-outline-primary w-100 rounded-pill py-2 fw-bold">
+                            <a href="${p.url}" class="btn btn-outline-primary w-100 rounded-pill py-2 fw-bold" onclick="event.preventDefault(); window.location.href=this.href;">
                                 Ver Práctica <i class="fas fa-external-link-alt ms-1"></i>
                             </a>
                         </div>
